@@ -1,4 +1,4 @@
-name: Build, Test and Package
+name: Build, Test and Publish
 
 on:
   push:
@@ -6,8 +6,11 @@ on:
   pull_request:
     branches: [ main, master ]
 
+permissions:
+  contents: read
+
 jobs:
-  build-and-test:
+  build-test-publish:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,6 +36,18 @@ jobs:
       run: |
         python -m pytest
 
-    - name: Build Docker Image
-      run: |
-        docker build -t telco-churn-api:latest .
+    - name: Log in to Docker Hub
+      if: github.event_name == 'push'
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: ${{ github.event_name == 'push' }}
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-api:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/telco-churn-api:${{ github.sha }}
