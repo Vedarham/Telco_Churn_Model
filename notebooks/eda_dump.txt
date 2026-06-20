@@ -1,0 +1,503 @@
+================================================================================
+CELL 0 - MARKDOWN
+================================================================================
+### Exploration and Data Loading
+
+================================================================================
+CELL 1 - CODE
+================================================================================
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+================================================================================
+CELL 2 - CODE
+================================================================================
+df = pd.read_csv('../data/Telco_Churn_Dataset.csv')
+df.head(5)
+
+================================================================================
+CELL 3 - CODE
+================================================================================
+df.isnull().sum()
+
+================================================================================
+CELL 4 - CODE
+================================================================================
+df.duplicated().sum()
+
+================================================================================
+CELL 5 - CODE
+================================================================================
+df.info()
+
+================================================================================
+CELL 6 - MARKDOWN
+================================================================================
+* we can cleary see that the data has no null values to fill
+* MonthlyChares and TotalCharges are different in data type; therefore, we need to convert to numeric data type for analyis
+* CustomerID has no significance in further modeling of the data, hence dropped
+
+================================================================================
+CELL 7 - CODE
+================================================================================
+df = df.drop('customerID', axis=1)
+
+================================================================================
+CELL 8 - MARKDOWN
+================================================================================
+* High Monthly charges has higher chances of Churn and it's free from gender bias
+* Tenure has likely less to do with Churn
+* At lower term contracts we can see higher avergae monthly charges
+
+================================================================================
+CELL 9 - CODE
+================================================================================
+df.head(2)
+
+================================================================================
+CELL 10 - MARKDOWN
+================================================================================
+#### EDA and Data Preprocessing
+
+================================================================================
+CELL 11 - CODE
+================================================================================
+df.groupby('Churn')['MonthlyCharges'].mean()
+
+================================================================================
+CELL 12 - CODE
+================================================================================
+df.groupby(['Churn','gender'])['MonthlyCharges'].mean()
+
+================================================================================
+CELL 13 - CODE
+================================================================================
+df.groupby('Churn')['tenure'].mean()
+
+================================================================================
+CELL 14 - CODE
+================================================================================
+df.groupby(['Contract','Churn'])['MonthlyCharges'].mean()
+
+================================================================================
+CELL 15 - CODE
+================================================================================
+df.groupby(['Contract'])['MonthlyCharges'].mean().plot(kind='bar')
+plt.xlabel('Contract Type')
+plt.ylabel('Average Monthly Charges')
+plt.title('Average Monthly Charges by Contract Type')
+plt.show()
+
+================================================================================
+CELL 16 - MARKDOWN
+================================================================================
+* We can clearly see below, that after conversion to numeric datatype, TotalCharges have total of 11 null cols, since the number is relative small we can mean impute it
+
+================================================================================
+CELL 17 - CODE
+================================================================================
+df['TotalCharges'] = pd.to_numeric(df['TotalCharges'], errors='coerce')
+df['MonthlyCharges'] = pd.to_numeric(df['MonthlyCharges'], errors='coerce')
+
+cols = ['MonthlyCharges', 'TotalCharges']
+df[cols].isnull().sum()
+
+================================================================================
+CELL 18 - MARKDOWN
+================================================================================
+* We can infer from this dataset is that, people who purchased the service did not complete a month; which marks their tenure as 0, hence the total charges becomes 0 ( assuming formula to be: TotalCharges = Tenure * MonthlyCharges )
+
+================================================================================
+CELL 19 - CODE
+================================================================================
+df[df['TotalCharges'].isnull()]
+
+================================================================================
+CELL 20 - CODE
+================================================================================
+df['TotalCharges'] = df['TotalCharges'].fillna(0.0)
+
+================================================================================
+CELL 21 - CODE
+================================================================================
+df['TotalCharges'].isnull().sum()
+
+================================================================================
+CELL 22 - CODE
+================================================================================
+df.describe()
+
+================================================================================
+CELL 23 - CODE
+================================================================================
+numeric_cols = df.select_dtypes(include=['float64', 'int64']).columns
+numeric_cols
+for col in numeric_cols:
+    plt.figure(figsize=(8, 4))
+    sns.histplot(df[col], kde=True)
+    plt.title(f'Distribution of {col}')
+    plt.xlabel(col)
+    plt.ylabel('Frequency')
+
+    col_mean = df[col].mean()
+    col_median = df[col].median()
+
+    plt.axvline(col_mean, color='red', linestyle='--', label=f'Mean: {col_mean:.2f}')
+    plt.axvline(col_median, color='green', linestyle=':', label=f'Median: {col_median:.2f}')
+    plt.legend()
+    plt.show()
+
+================================================================================
+CELL 24 - MARKDOWN
+================================================================================
+* The 'TotalCharges' distribution appears to be right skewed, with a mean higher than the median, i.e. that there are customers with very high total charges, likely because of longer tenure or higher monthly charges
+* It can also be noted that, the distribution of each numerical feature is not uniform or normally distributed which makes it non applicable to models like regression or svm.
+* So, we can either perform standard feature scaling or we can just use Decision Trees as they are less sensitive to such distributions.
+
+================================================================================
+CELL 25 - CODE
+================================================================================
+for cols in numeric_cols:
+    plt.figure(figsize=(8, 4))
+    sns.boxplot(x=df[cols])
+    plt.title(f'Boxplot of {cols}')
+    plt.xlabel(cols)
+    plt.show()
+
+================================================================================
+CELL 26 - MARKDOWN
+================================================================================
+* Also, No outliers can be found in the data
+
+================================================================================
+CELL 27 - MARKDOWN
+================================================================================
+#### Feature Engineering
+
+================================================================================
+CELL 28 - CODE
+================================================================================
+for col in df.select_dtypes(include=['object']).columns:
+    print(f'{col} value counts:')
+    print(df[col].value_counts())
+    print('\n')
+
+================================================================================
+CELL 29 - CODE
+================================================================================
+binary_cols =[
+    'gender',
+    'Partner',
+    'Dependents',
+    'PhoneService',
+    'PaperlessBilling',
+    'Churn'
+]
+
+df[binary_cols] = df[binary_cols].replace({'Yes': 1, 'No': 0, 'Male': 1, 'Female': 0})
+df.head(5)
+
+================================================================================
+CELL 30 - CODE
+================================================================================
+multi_cat_cols = [
+    'MultipleLines',
+    'InternetService',
+    'OnlineSecurity',
+    'DeviceProtection',
+    'OnlineBackup',
+    'TechSupport',
+    'StreamingTV',
+    'StreamingMovies',
+    'Contract',
+    'PaymentMethod'
+]
+
+df = pd.get_dummies(df, columns=multi_cat_cols, drop_first=True)
+df.head(5)
+
+
+================================================================================
+CELL 31 - CODE
+================================================================================
+bool_cols = df.select_dtypes(include='bool').columns
+df[bool_cols] = df[bool_cols].astype(int)
+df.head(5)
+
+================================================================================
+CELL 32 - CODE
+================================================================================
+import matplotlib.pyplot as plt
+corr_mat = df.corr(numeric_only=True)
+churn_corr = corr_mat[['Churn']].sort_values(by='Churn',ascending=False)
+plt.figure(figsize=(4,12))
+sns.heatmap(churn_corr, annot=True, fmt='.2f', cmap='coolwarm', vmin=-1, vmax=1)
+plt.show()
+
+================================================================================
+CELL 33 - MARKDOWN
+================================================================================
+* It can be infered that 'MonthlyCharges' has the highest positive correlation with 'Churn', while 'tenure' has the highest negative correlation. This suggests that customers on month-to-month contracts are more likely to churn, while those with longer tenure are less likely to churn.
+
+================================================================================
+CELL 34 - CODE
+================================================================================
+# We need to collapse redundant columns before running VIF
+df['No_internet_service'] = (
+    df['OnlineSecurity_No internet service'] |
+    df['OnlineBackup_No internet service'] |
+    df['DeviceProtection_No internet service'] |
+    df['TechSupport_No internet service'] |
+    df['StreamingTV_No internet service'] |
+    df['StreamingMovies_No internet service']
+).astype(int)
+
+# Drop the original redundant dummies
+drop_cols = [col for col in df.columns if 'No internet service' in col]
+df = df.drop(columns=drop_cols)
+
+# Handle PhoneService redundancy
+if 'MultipleLines_No phone service' in df.columns:
+    df['No_phone_service'] = df['MultipleLines_No phone service'].astype(int)
+    df = df.drop(columns=['MultipleLines_No phone service'])
+
+================================================================================
+CELL 35 - CODE
+================================================================================
+X = df.drop(columns=['Churn'])
+bool_cols = X.select_dtypes(include='bool').columns
+X[bool_cols] = X[bool_cols].astype(int)
+
+================================================================================
+CELL 36 - CODE
+================================================================================
+from statsmodels.stats.outliers_influence import variance_inflation_factor
+# Remove rows with missing or infinite values
+X = X.replace([np.inf, -np.inf], np.nan)
+X = X.dropna()
+
+vif_data = pd.DataFrame()
+vif_data['feature'] = X.columns
+vif_data['VIF'] = [variance_inflation_factor(X.values, i) for i in range(X.shape[1])]
+vif_data = vif_data.sort_values(by='VIF', ascending=False)
+
+print(vif_data)
+
+================================================================================
+CELL 37 - MARKDOWN
+================================================================================
+* VIF values above 5 indicate potential multicollinearity issues. 
+* In this case, 'TotalCharges' has a VIF of 10.8, which suggests it is highly correlated with other features, likely 'tenure' and 'MonthlyCharges'.
+* We may consider dropping 'TotalCharges' to reduce multicollinearity in our model
+* Which is maybe considering using regularization techniques like Lasso or Ridge regression to handle this
+* We may also use Decision Tree, as they are less sensitive to multicolinearity, which is based on reducing impurities in later splits and alone on importance of the feature.
+
+================================================================================
+CELL 38 - CODE
+================================================================================
+df['Churn'].value_counts()
+
+================================================================================
+CELL 39 - MARKDOWN
+================================================================================
+We have a class imbalance problem, with 5174 non-churners and 1869 churners. 
+* This may require techniques such as resampling or using algorithms that can handle imbalanced data to ensure that our model does not become biased towards the majority class.
+* such algorithms include Random Forest, Gradient Boosting, or XGBoost, which can handle imbalanced datasets effectively. 
+* Additionally, we could consider using techniques like SMOTE (Synthetic Minority Over-sampling Technique) to generate synthetic samples for the minority class (churners) to balance the dataset before training our model.
+
+================================================================================
+CELL 40 - CODE
+================================================================================
+from sklearn.model_selection import train_test_split
+
+X = df.drop(columns=['Churn'])
+y = df['Churn']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+================================================================================
+CELL 41 - CODE
+================================================================================
+y_train.value_counts()
+
+================================================================================
+CELL 42 - MARKDOWN
+================================================================================
+#### SMOTE
+
+================================================================================
+CELL 43 - CODE
+================================================================================
+from imblearn.over_sampling import SMOTE
+smote = SMOTE(random_state=42)
+
+================================================================================
+CELL 44 - CODE
+================================================================================
+X_train_smote, y_train_smote = smote.fit_resample(X_train, y_train)
+
+================================================================================
+CELL 45 - CODE
+================================================================================
+y_train_smote.value_counts()
+
+================================================================================
+CELL 46 - MARKDOWN
+================================================================================
+#### Model Training and Evaluation
+
+
+================================================================================
+CELL 47 - CODE
+================================================================================
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score
+
+models = {
+    "Decision Tree": DecisionTreeClassifier(random_state=42),
+    "Random Forest": RandomForestClassifier(random_state=42),
+    "XGBoost": XGBClassifier(random_state=42),
+    "LightGBM": LGBMClassifier(random_state=42)
+}
+
+================================================================================
+CELL 48 - CODE
+================================================================================
+param_grid_dt = {
+    'criterion': ['gini', 'entropy'],
+    'max_depth': [None,10, 20, 30, 50],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+param_grid_rf = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4],
+    'bootstrap': [True, False],
+}
+
+param_grid_xgb = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [3, 6, 10],
+    'learning_rate': [0.01, 0.1, 0.3],
+    'subsample': [0.5, 0.7, 1.0],
+    'colsample_bytree': [0.5, 0.7, 1.0],
+}
+
+param_grid_lgbm = {
+    'n_estimators': [50, 100, 200],
+    'max_depth': [3, 6, 10],
+    'learning_rate': [0.01, 0.1, 0.3],
+    'num_leaves': [31, 50, 70],
+    'subsample': [0.5, 0.7, 1.0],
+}
+
+================================================================================
+CELL 49 - CODE
+================================================================================
+from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold, cross_val_score
+
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+search_spaces = {
+    "Decision Tree": param_grid_dt,
+    "Random Forest": param_grid_rf,
+    "XGBoost": param_grid_xgb,
+    "LightGBM": param_grid_lgbm,
+}
+
+best_estimators = {}
+
+for name, model in models.items():
+    print(f"\n{name} cross-validation")
+    auc_scores = cross_val_score(model, X_train_smote, y_train_smote, cv=cv, scoring='roc_auc', n_jobs=-1)
+    f1_scores = cross_val_score(model, X_train_smote, y_train_smote, cv=cv, scoring='f1', n_jobs=-1)
+    acc_scores = cross_val_score(model, X_train_smote, y_train_smote, cv=cv, scoring='accuracy', n_jobs=-1)
+    print(f"  ROC AUC: mean={auc_scores.mean():.4f}, std={auc_scores.std():.4f}")
+    print(f"  F1:      mean={f1_scores.mean():.4f}, std={f1_scores.std():.4f}")
+    print(f"  Accuracy: mean={acc_scores.mean():.4f}, std={acc_scores.std():.4f}")
+
+    search = RandomizedSearchCV(
+        estimator=model,
+        param_distributions=search_spaces[name],
+        n_iter=20,
+        scoring="roc_auc",
+        cv=cv,
+        n_jobs=-1,
+        random_state=42,
+        verbose=1,
+    )
+    search.fit(X_train_smote, y_train_smote)
+
+    best_estimators[name] = search.best_estimator_
+    print(f"  Best ROC AUC (cv): {search.best_score_:.4f}")
+    print(f"  Best params: {search.best_params_}")
+
+thresholds = [i / 10 for i in range(1, 10)]
+for name, model in best_estimators.items():
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(X_test)[:, 1]
+    else:
+        probs = model.decision_function(X_test)
+        probs = 1 / (1 + np.exp(-probs))
+
+    print(f"\n{name} tuned model threshold results")
+    for th in thresholds:
+        preds = (probs >= th).astype(int)
+        acc = accuracy_score(y_test, preds)
+        prec = precision_score(y_test, preds)
+        rec = recall_score(y_test, preds)
+        f1 = f1_score(y_test, preds)
+        print(f" threshold={th:.2f} | accuracy={acc:.3f} | precision={prec:.3f} | recall={rec:.3f} | f1={f1:.3f}")
+
+================================================================================
+CELL 50 - MARKDOWN
+================================================================================
+#### Random Forest gives highest AUC and F1 scores, so we will select it as our final model.
+
+================================================================================
+CELL 51 - CODE
+================================================================================
+xgb = best_estimators["XGBoost"]
+
+model = xgb.fit(X_train_smote, y_train_smote)
+
+================================================================================
+CELL 52 - CODE
+================================================================================
+y_test.value_counts()
+
+================================================================================
+CELL 53 - CODE
+================================================================================
+from sklearn.metrics import classification_report, confusion_matrix
+
+y_pred = model.predict(X_test)
+y_proba = model.predict_proba(X_test)[:, 1]
+
+print(f"Confusion Matrix: \n{confusion_matrix(y_test, y_pred)}")
+print(f"Test Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+print(f"Test Precision: {precision_score(y_test, y_pred):.4f}")
+print(f"Test Recall: {recall_score(y_test, y_pred):.4f}")
+print(f"Test F1 Score: {f1_score(y_test, y_pred):.4f}")
+print(f"Test ROC AUC: {roc_auc_score(y_test, y_proba):.4f}")
+print(f"classification report: \n{classification_report(y_test, y_pred)}")
+
+
+================================================================================
+CELL 54 - MARKDOWN
+================================================================================
+### Hyperparameter Tuning (Optuna) & Experiment Tracking (MLFlow)
+
+================================================================================
+CELL 55 - CODE
+================================================================================
+
+
