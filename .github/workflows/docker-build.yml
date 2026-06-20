@@ -1,5 +1,4 @@
 name: Build, Test and Publish
-name: Build, Test and Publish
 
 on:
   push:
@@ -11,7 +10,6 @@ permissions:
   contents: read
 
 jobs:
-  build-test-publish:
   build-test-publish:
     runs-on: ubuntu-latest
 
